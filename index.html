@@ -486,7 +486,8 @@ canvas { display: block; width: 100%; height: 100%; }
   state.profile = { ...DEF_PROFILE, ...state.profile };
   state.favs = Array.isArray(state.favs) ? state.favs : [];
   state.foods = Array.isArray(state.foods) ? state.foods : [];
-  state.drinks.forEach(d => { if (!d.id) d.id = uid(); });
+  // horários inteiros (ms): o token das notificações é o horário da bebida e não pode ter casas decimais
+  state.drinks.forEach(d => { if (!d.id) d.id = uid(); d.t = Math.round(d.t); });
 
   function defaultState() {
     // Exemplo inicial: homem, 70 kg, 2 cervejas em lata nas últimas 2 horas
@@ -597,7 +598,7 @@ canvas { display: block; width: 100%; height: 100%; }
     // Distribui as bebidas em intervalos iguais entre o 1º gole e agora
     const gap = items.length > 1 ? elapsed / items.length : 0;
     state.form = { hours: h, mins: m, rows };
-    state.drinks = items.map((d, i) => ({ ...d, id: uid(), t: start + i * gap }));
+    state.drinks = items.map((d, i) => ({ ...d, id: uid(), t: Math.round(start + i * gap) }));
     state.foods = [];
     save(); render();
     toast(items.length ? `Sessão iniciada com ${items.length} bebida${items.length > 1 ? 's' : ''}` : 'Nenhuma bebida informada');
@@ -996,22 +997,45 @@ canvas { display: block; width: 100%; height: 100%; }
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
-    navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'add-last') addLastByToken(e.data.token); });
+    navigator.serviceWorker.addEventListener('message', async e => {
+      if (!(e.data && e.data.type === 'add-last')) return;
+      // consome a ação gravada pelo service worker; se não houver, usa o token da mensagem
+      if (!(await consumePending())) addLastByToken(e.data.token);
+    });
+  }
+  // "+1 pendente" gravado pelo service worker no toque da notificação (ver sw.js)
+  const PENDING = new URL('./__pending-action', location.href).href;
+  async function consumePending() {
+    if (!('caches' in window)) return false;
+    try {
+      const c = await caches.open('bafometro-actions');
+      const r = await c.match(PENDING);
+      if (!r) return false;
+      await c.delete(PENDING);
+      const j = await r.json();
+      if (Date.now() - j.at < 60 * 60e3) addLastByToken(j.token);
+      return true;
+    } catch { return false; }
   }
   // Só adiciona se a notificação for da última bebida atual (evita somar duas vezes)
   function addLastByToken(token) {
     token = String(token || '');
+    const same = (t, tok) => Math.round(Number(tok)) === Math.round(t);
     if (token.startsWith('water:')) {
       const w = waterInfo();
-      if (w.due && String(w.since) === token.slice(6)) addDrink('water', state.water.ml, 0);
+      if (w.due && same(w.since, token.slice(6))) addDrink('water', state.water.ml, 0);
       return;
     }
     const last = lastDrink();
-    if (!last || String(last.t) !== String(token)) return;
+    if (!last || !same(last.t, token)) return;
     addDrink(last.type, last.ml, last.abv);
   }
   const qs = new URLSearchParams(location.search);
   if (qs.has('add')) { history.replaceState(null, '', location.pathname); setTimeout(() => addLastByToken(qs.get('add')), 0); }
+  // ao abrir e sempre que o app volta para a frente, aplica um toque pendente
+  setTimeout(consumePending, 0);
+  window.addEventListener('focus', () => consumePending());
+  window.addEventListener('pageshow', () => consumePending());
 
   // Instalação
   if (isIOS && !isStandalone()) $('install-panel').hidden = false;
@@ -1049,10 +1073,10 @@ canvas { display: block; width: 100%; height: 100%; }
     const r = state.reminder, last = lastDrink(), w = state.water, wi = waterInfo(), out = {};
     if (r.on && last) {
       const at = last.t + r.every * 60e3, sim = simulate(), b = sample(sim?.bac || [], sim, at);
-      out.next = { at, token: String(last.t), tag: 'bafometro-lembrete', title: 'Hora da próxima?', body: `Toque para adicionar +1 ${drinkLabel(last)}. Você deve estar em ~${nf(b, 3)}%.` };
+      out.next = { at, token: String(Math.round(last.t)), tag: 'bafometro-lembrete', title: 'Hora da próxima?', body: `Toque para adicionar +1 ${drinkLabel(last)}. Você deve estar em ~${nf(b, 3)}%.` };
     }
     if (w.on && wi.due) {
-      out.water = { at: wi.since + WATER_DELAY, token: 'water:' + wi.since, tag: 'bafometro-agua', title: 'Hora de um copo d’água', body: `${wi.count} bebidas alcoólicas desde a última água. Toque para registrar um copo de ${nf(w.ml, 0)} ml.` };
+      out.water = { at: wi.since + WATER_DELAY, token: 'water:' + Math.round(wi.since), tag: 'bafometro-agua', title: 'Hora de um copo d’água', body: `${wi.count} bebidas alcoólicas desde a última água. Toque para registrar um copo de ${nf(w.ml, 0)} ml.` };
     }
     return out;
   }
@@ -1104,7 +1128,7 @@ canvas { display: block; width: 100%; height: 100%; }
     await reg.showNotification('Hora da próxima?', {
       body: `Toque para adicionar +1 ${drinkLabel(last)}. Agora você está em ${nf(b, 3)}%.`,
       icon: 'icon-192.png', badge: 'icon-192.png', tag: 'bafometro-lembrete', renotify: true,
-      data: { token: String(last.t) },
+      data: { token: String(Math.round(last.t)) },
       actions: [{ action: 'add', title: '+1' }, { action: 'skip', title: 'Agora não' }]
     });
   }
@@ -1128,7 +1152,7 @@ canvas { display: block; width: 100%; height: 100%; }
         if (!pushActive && now - due < 15 * 60e3) {
           navigator.serviceWorker.ready.then(reg => reg.showNotification('Hora de um copo d’água', {
             body: `${wi.count} bebidas alcoólicas desde a última água. Toque para registrar um copo de ${nf(w.ml, 0)} ml.`,
-            icon: 'icon-192.png', tag: 'bafometro-agua', data: { token: 'water:' + wi.since }
+            icon: 'icon-192.png', tag: 'bafometro-agua', data: { token: 'water:' + Math.round(wi.since) }
           })).catch(() => {});
         }
       }
@@ -1190,7 +1214,7 @@ canvas { display: block; width: 100%; height: 100%; }
     }
   });
   $('rem-every').addEventListener('change', e => { state.reminder.every = parseInt(e.target.value, 10) || 30; state.reminder.notifiedFor = null; save(); renderReminder(); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { renderLive(); tickReminder(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { consumePending(); renderLive(); tickReminder(); } });
 
   buildTable(); buildMeds(); fillProfile(); fillQuick(); render(); renderReminder(); queueSync();
   setInterval(() => { renderLive(); tickReminder(); }, 1000);
