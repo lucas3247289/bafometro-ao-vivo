@@ -1,5 +1,5 @@
 // Service worker do Bafômetro ao Vivo: funciona offline e trata o toque nas notificações
-const CACHE = 'bafometro-v3';
+const CACHE = 'bafometro-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -32,11 +32,23 @@ self.addEventListener('fetch', e => {
   })());
 });
 
+// Lembrete vindo do servidor (funciona com o app fechado)
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch {}
+  e.waitUntil(self.registration.showNotification(d.title || 'Hora da próxima?', {
+    body: d.body || 'Toque para adicionar +1 da última bebida.',
+    icon: 'icon-192.png', badge: 'icon-192.png', tag: 'bafometro-lembrete', renotify: true,
+    data: { token: d.token || '' },
+    actions: d.token ? [{ action: 'add', title: '+1' }, { action: 'skip', title: 'Agora não' }] : []
+  }));
+});
+
 // Toque na notificação: adiciona +1 da última bebida
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   if (e.action === 'skip') return;
-  const token = e.notification.data && e.notification.data.token;
+  const token = (e.notification.data && e.notification.data.token) || '';
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     if (wins.length) {

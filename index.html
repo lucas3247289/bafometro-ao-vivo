@@ -408,7 +408,7 @@ canvas { display: block; width: 100%; height: 100%; }
     };
   }
   function load() { try { const s = JSON.parse(localStorage.getItem(STORE)); return s && Array.isArray(s.drinks) ? s : null; } catch { return null; } }
-  function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} queueSync(); }
 
   // ---------- Formulário ----------
   const opt = (v, l, sel) => `<option value="${v}"${sel ? ' selected' : ''}>${l}</option>`;
@@ -781,6 +781,44 @@ canvas { display: block; width: 100%; height: 100%; }
     deferredPrompt = null; $('install-android').hidden = true;
   });
 
+  // ---------- Push pelo servidor (lembrete com o app fechado) ----------
+  var PUSH_URL = 'https://bafometro-push.lucas2000-199862.workers.dev';   // vazio = só lembrete local
+  var vapidKey = null, pushActive = false, lastSyncKey = null, syncTimer = null;
+  const ub64 = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+  const canPush = () => !!PUSH_URL && 'PushManager' in window && 'serviceWorker' in navigator;
+  const pushPost = (path, body) => fetch(PUSH_URL + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  if (canPush()) fetch(PUSH_URL + '/vapid').then(r => r.json()).then(j => { vapidKey = j.publicKey; }).catch(() => {});
+
+  async function getPushSub(create) {
+    if (!canPush()) return null;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub && create) {
+      if (!vapidKey) vapidKey = (await fetch(PUSH_URL + '/vapid').then(r => r.json())).publicKey;
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: ub64(vapidKey) });
+    }
+    return sub;
+  }
+  function queueSync() { clearTimeout(syncTimer); syncTimer = setTimeout(syncPush, 400); }
+  // Mantém no servidor só o próximo lembrete deste aparelho
+  async function syncPush() {
+    if (!canPush()) return;
+    const r = state.reminder, last = lastDrink();
+    const key = JSON.stringify([r.on, r.every, last && last.t]);
+    if (key === lastSyncKey) return;
+    try {
+      const sub = await getPushSub(false);
+      if (!sub) { pushActive = false; return; }
+      if (r.on && last) {
+        const at = last.t + r.every * 60e3, sim = simulate(), b = sample(sim?.bac || [], sim, at);
+        await pushPost('/schedule', { sub: sub.toJSON(), at, token: String(last.t), title: 'Hora da próxima?', body: `Toque para adicionar +1 ${drinkLabel(last)}. Você deve estar em ~${nf(b, 3)}%.` });
+        pushActive = true;
+      } else { await pushPost('/cancel', { sub: sub.toJSON() }); pushActive = false; }
+      lastSyncKey = key;
+    } catch { pushActive = false; lastSyncKey = null; }
+    renderReminder();
+  }
+
   async function notify(last) {
     const reg = await navigator.serviceWorker.ready;
     const sim = simulate(), b = sample(sim?.bac || [], sim, Date.now());
@@ -798,7 +836,8 @@ canvas { display: block; width: 100%; height: 100%; }
       // dispara uma vez por bebida; se o app ficou fechado e voltou muito depois, não dispara atrasado
       if (now >= due && r.notifiedFor !== last.t) {
         r.notifiedFor = last.t; save();
-        if (now - due < 15 * 60e3) notify(last).catch(() => {});
+        // com push ativo quem avisa é o servidor; o aviso local fica de reserva
+        if (!pushActive && now - due < 15 * 60e3) notify(last).catch(() => {});
       }
     }
     renderReminder();
@@ -820,6 +859,7 @@ canvas { display: block; width: 100%; height: 100%; }
     if (blockedIOS) help = 'No iPhone, as notificações só funcionam com o app instalado na Tela de Início (iOS 16.4 ou mais novo). Veja os passos acima.';
     else if (!canNotify()) help = 'Este navegador não permite notificações.';
     else if (Notification.permission === 'denied') help = isIOS ? 'Notificações bloqueadas. Libere em Ajustes › Notificações › Bafômetro.' : 'Notificações bloqueadas. Libere nas configurações do site no navegador.';
+    else if (pushActive) help = 'Lembrete pelo servidor: chega mesmo com o app fechado ou o celular bloqueado.';
     else help = isIOS ? 'O aviso é gerado pelo próprio app: deixe o Bafômetro aberto. Se o iPhone pausar o app em segundo plano, o aviso chega quando você voltar para ele.' : 'O aviso é gerado pelo próprio app: deixe o Bafômetro aberto (pode ser em outra aba ou minimizado).';
     $('rem-help').textContent = help;
   }
@@ -827,8 +867,14 @@ canvas { display: block; width: 100%; height: 100%; }
     const r = state.reminder;
     if (e.target.checked) {
       let p = Notification.permission;
+      if (canPush()) {
+        // no Safari a inscrição precisa vir direto do toque; ela mesma pede a permissão
+        try { await getPushSub(true); } catch {}
+        p = Notification.permission;
+      }
       if (p === 'default') { try { p = await Notification.requestPermission(); } catch { p = 'denied'; } }
       if (p !== 'granted') { r.on = false; save(); renderReminder(); toast('Sem permissão para notificar'); return; }
+      lastSyncKey = null;
       r.on = true;
       const last = lastDrink();
       // se a hora da última já passou, espera a próxima bebida em vez de avisar na hora
@@ -840,7 +886,7 @@ canvas { display: block; width: 100%; height: 100%; }
   $('rem-every').addEventListener('change', e => { state.reminder.every = parseInt(e.target.value, 10) || 30; state.reminder.notifiedFor = null; save(); renderReminder(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { renderLive(); tickReminder(); } });
 
-  buildTable(); buildMeds(); fillProfile(); fillQuick(); render(); renderReminder();
+  buildTable(); buildMeds(); fillProfile(); fillQuick(); render(); renderReminder(); queueSync();
   setInterval(() => { renderLive(); tickReminder(); }, 1000);
   window.addEventListener('resize', () => renderLive());
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => renderLive());
