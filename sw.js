@@ -1,5 +1,5 @@
 // Service worker do Bafômetro ao Vivo: funciona offline e trata o toque nas notificações
-const CACHE = 'bafometro-v5';
+const CACHE = 'bafometro-v6';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -37,7 +37,7 @@ self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch {}
   const title = d.title || 'Hora da próxima?';
-  const base = { body: d.body || 'Toque para adicionar +1 da última bebida.', icon: 'icon-192.png', tag: 'bafometro-lembrete', data: { token: d.token || '' } };
+  const base = { body: d.body || 'Toque para adicionar +1 da última bebida.', icon: 'icon-192.png', tag: d.tag || 'bafometro-lembrete', data: { token: d.token || '' } };
   e.waitUntil((async () => {
     try {
       await self.registration.showNotification(title, { ...base, badge: 'icon-192.png', renotify: true,

@@ -896,9 +896,13 @@ canvas { display: block; width: 100%; height: 100%; }
     try {
       const sub = await getPushSub(true);
       if (!sub) { out.textContent = 'Não foi possível criar a inscrição de push. ' + info.join(' · '); return; }
-      const r = await pushPost('/test', { sub: sub.toJSON() });
-      const ok = r.status >= 200 && r.status < 300;
-      out.textContent = (ok ? 'Enviado: o servidor de push aceitou' : 'O servidor de push recusou') + ` (código ${r.status}${r.body ? ', ' + r.body : ''}, ${r.host}). ` + info.join(' · ');
+      const sentAt = Date.now();
+      await pushPost('/test', { sub: sub.toJSON(), delay: 10 });
+      out.textContent = 'Teste agendado: bloqueie a tela agora. Em ~10 s devem chegar 2 avisos: "Teste 1/2: criptografado" e "Hora da próxima?". ' + info.join(' · ');
+      await new Promise(r => setTimeout(r, 20000));
+      const last = await fetch(PUSH_URL + '/last', { cache: 'no-store' }).then(r => r.json());
+      const fmt = x => x && Date.parse(x.at) >= sentAt ? `${x.status}${x.body ? ' ' + x.body : ''}` : 'sem resposta';
+      out.textContent = `Resposta da ${last.last_test ? last.last_test.host : 'Apple'}: aviso 1 (criptografado) = ${fmt(last.last_test)}, aviso 2 (vazio) = ${fmt(last.last_test_empty)}. 201 quer dizer aceito. ` + info.join(' · ');
     } catch (err) {
       out.textContent = 'Erro ao enviar: ' + ((err && err.message) || err) + '. ' + info.join(' · ');
     }
