@@ -3,8 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style><title>Bafômetro ao Vivo</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Bafômetro ao Vivo</title>
+<meta name="description" content="Calculadora de álcool no sangue ao vivo">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bafômetro">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f151b" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
@@ -157,6 +167,22 @@ canvas { display: block; width: 100%; height: 100%; }
 .disclaimer a { color: var(--muted); }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .toast.show { opacity: 1; }
+
+/* Lembrete + chave estilo iOS */
+.switch-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.switch-row > div { min-width: 0; display: grid; gap: 2px; }
+.switch { position: relative; width: 51px; height: 31px; flex: none; }
+.switch input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--line); transition: background .2s; }
+.switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--knob); box-shadow: 0 2px 4px rgba(0,0,0,.28); transition: transform .2s; }
+.switch input:checked + span { background: var(--ios-green); }
+.switch input:checked + span::after { transform: translateX(20px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.switch input:disabled { cursor: not-allowed; }
+.switch input:disabled + span { opacity: .45; }
+@media (prefers-reduced-motion: reduce) { .switch span, .switch span::after { transition: none; } }
+.install-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
+:root { --knob: #ffffff; --ios-green: #34c759; }
 </style>
 
 </head>
@@ -281,6 +307,44 @@ canvas { display: block; width: 100%; height: 100%; }
         </div>
       </section>
 
+      <section class="panel" id="install-panel" hidden>
+        <h2>Instale no iPhone</h2>
+        <ol class="install-steps">
+          <li>Abra este site no <b>Safari</b>.</li>
+          <li>Toque em <b>Compartilhar</b> (o quadrado com a seta para cima).</li>
+          <li>Escolha <b>Adicionar à Tela de Início</b> e confirme.</li>
+          <li>Abra pelo ícone do Bafômetro: ele roda em tela cheia, funciona offline e pode mandar notificações.</li>
+        </ol>
+      </section>
+      <section class="panel" id="install-android" hidden>
+        <div class="switch-row">
+          <div><h2>Instalar como app</h2><span class="hint">Abre em tela cheia, com ícone na tela inicial.</span></div>
+          <button type="button" class="btn-primary" id="install-btn">Instalar</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="switch-row">
+          <div>
+            <h2>Lembrete da próxima</h2>
+            <span class="hint" id="rem-status">Avisa quando for hora de mais uma. Tocar no aviso adiciona +1 da última bebida.</span>
+          </div>
+          <label class="switch" for="rem-on"><input type="checkbox" id="rem-on" role="switch" aria-label="Ativar lembrete da próxima bebida"><span></span></label>
+        </div>
+        <div class="field">
+          <label for="rem-every">Lembrar depois de</label>
+          <select id="rem-every">
+            <option value="15">15 min da última</option>
+            <option value="20">20 min da última</option>
+            <option value="30" selected>30 min da última</option>
+            <option value="45">45 min da última</option>
+            <option value="60">1 hora da última</option>
+            <option value="90">1h30 da última</option>
+          </select>
+        </div>
+        <p class="hint" id="rem-help"></p>
+      </section>
+
       <div class="disclaimer">
         <p><b>Como é calculado.</b> Base de Widmark: álcool absorvido em gramas ÷ (peso em gramas × r) × 100, com r = 0,68 (homens) e 0,55 (mulheres). Cada bebida é ingerida aos poucos durante o tempo de beber e passa do estômago para o sangue gradualmente. De estômago vazio, a absorção é rápida e o pico vem cerca de 30 a 45 min depois do gole. Com comida, parte do álcool fica retida e é absorvida em horas, uma parte não chega ao sangue e o pico é mais baixo e mais tardio. A eliminação é de 0,015% por hora (um pouco mais rápida depois de uma refeição). AAS e bloqueadores H2 podem aumentar o álcool no sangue em 10 a 20%. Calmantes, antidepressivos, antialérgicos e opioides não mudam o número, mas somam efeito com o álcool.</p>
         <p>Referências: Jones (1991), cerveja com e sem refeição <a href="https://www.ojp.gov/ncjrs/virtual-library/abstracts/concentration-time-profiles-ethanol-capillary-blood-after-ingestion" target="_blank" rel="noopener">ojp.gov</a>; Jones &amp; Neri (1991), absorção em duas fases com refeição <a href="https://ojp.gov/ncjrs/virtual-library/abstracts/evaluation-blood-ethanol-profiles-after-consumption-alcohol" target="_blank" rel="noopener">ojp.gov</a>; interações com remédios, NIAAA <a href="https://www.niaaa.nih.gov/sites/default/files/potentially-serious-alcohol-medication-interactions-in-older-adults.pdf" target="_blank" rel="noopener">niaaa.nih.gov</a>.</p>
@@ -331,6 +395,7 @@ canvas { display: block; width: 100%; height: 100%; }
 
   // ---------- Estado ----------
   let state = load() || defaultState();
+  state.reminder = { on: false, every: 30, notifiedFor: null, ...state.reminder };
   state.profile = { ...DEF_PROFILE, ...state.profile };
 
   function defaultState() {
@@ -685,8 +750,98 @@ canvas { display: block; width: 100%; height: 100%; }
   // ---------- Util ----------
   let tt; function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 1800); }
 
-  buildTable(); buildMeds(); fillProfile(); fillQuick(); render();
-  setInterval(renderLive, 1000);
+  // ---------- PWA + lembrete ----------
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const canNotify = () => 'Notification' in window && 'serviceWorker' in navigator;
+  const lastDrink = () => state.drinks.reduce((a, d) => (!a || d.t > a.t ? d : a), null);
+  const drinkLabel = d => `${TYPES[d.type].name} ${nf(d.ml, 0)} ml · ${nf(d.abv, d.abv % 1 ? 1 : 0)}%`;
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'add-last') addLastByToken(e.data.token); });
+  }
+  // Só adiciona se a notificação for da última bebida atual (evita somar duas vezes)
+  function addLastByToken(token) {
+    const last = lastDrink();
+    if (!last || String(last.t) !== String(token)) return;
+    addDrink(last.type, last.ml, last.abv);
+  }
+  const qs = new URLSearchParams(location.search);
+  if (qs.has('add')) { history.replaceState(null, '', location.pathname); setTimeout(() => addLastByToken(qs.get('add')), 0); }
+
+  // Instalação
+  if (isIOS && !isStandalone()) $('install-panel').hidden = false;
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('install-android').hidden = false; });
+  $('install-btn').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    try { await deferredPrompt.userChoice; } catch {}
+    deferredPrompt = null; $('install-android').hidden = true;
+  });
+
+  async function notify(last) {
+    const reg = await navigator.serviceWorker.ready;
+    const sim = simulate(), b = sample(sim?.bac || [], sim, Date.now());
+    await reg.showNotification('Hora da próxima?', {
+      body: `Toque para adicionar +1 ${drinkLabel(last)}. Agora você está em ${nf(b, 3)}%.`,
+      icon: 'icon-192.png', badge: 'icon-192.png', tag: 'bafometro-lembrete', renotify: true,
+      data: { token: String(last.t) },
+      actions: [{ action: 'add', title: '+1' }, { action: 'skip', title: 'Agora não' }]
+    });
+  }
+  function tickReminder() {
+    const r = state.reminder, last = lastDrink();
+    if (r.on && last && canNotify() && Notification.permission === 'granted') {
+      const due = last.t + r.every * 60e3, now = Date.now();
+      // dispara uma vez por bebida; se o app ficou fechado e voltou muito depois, não dispara atrasado
+      if (now >= due && r.notifiedFor !== last.t) {
+        r.notifiedFor = last.t; save();
+        if (now - due < 15 * 60e3) notify(last).catch(() => {});
+      }
+    }
+    renderReminder();
+  }
+  function renderReminder() {
+    const r = state.reminder, last = lastDrink(), sw = $('rem-on');
+    const blockedIOS = isIOS && !isStandalone();
+    sw.disabled = blockedIOS || !canNotify();
+    sw.checked = r.on && !sw.disabled;
+    $('rem-every').value = String(r.every);
+    let status = 'Avisa quando for hora de mais uma. Tocar no aviso adiciona +1 da última bebida.';
+    if (r.on && !sw.disabled) {
+      if (!last) status = 'Ligado. Adicione uma bebida para começar a contar.';
+      else if (r.notifiedFor === last.t) status = `Aviso enviado. Toque nele ou use +1 para adicionar ${drinkLabel(last)}.`;
+      else status = `Próximo aviso às ${fmtClock(last.t + r.every * 60e3)}: +1 ${drinkLabel(last)}.`;
+    }
+    $('rem-status').textContent = status;
+    let help;
+    if (blockedIOS) help = 'No iPhone, as notificações só funcionam com o app instalado na Tela de Início (iOS 16.4 ou mais novo). Veja os passos acima.';
+    else if (!canNotify()) help = 'Este navegador não permite notificações.';
+    else if (Notification.permission === 'denied') help = isIOS ? 'Notificações bloqueadas. Libere em Ajustes › Notificações › Bafômetro.' : 'Notificações bloqueadas. Libere nas configurações do site no navegador.';
+    else help = isIOS ? 'O aviso é gerado pelo próprio app: deixe o Bafômetro aberto. Se o iPhone pausar o app em segundo plano, o aviso chega quando você voltar para ele.' : 'O aviso é gerado pelo próprio app: deixe o Bafômetro aberto (pode ser em outra aba ou minimizado).';
+    $('rem-help').textContent = help;
+  }
+  $('rem-on').addEventListener('change', async e => {
+    const r = state.reminder;
+    if (e.target.checked) {
+      let p = Notification.permission;
+      if (p === 'default') { try { p = await Notification.requestPermission(); } catch { p = 'denied'; } }
+      if (p !== 'granted') { r.on = false; save(); renderReminder(); toast('Sem permissão para notificar'); return; }
+      r.on = true;
+      const last = lastDrink();
+      // se a hora da última já passou, espera a próxima bebida em vez de avisar na hora
+      r.notifiedFor = last && Date.now() >= last.t + r.every * 60e3 ? last.t : null;
+      toast('Lembrete ligado');
+    } else { r.on = false; toast('Lembrete desligado'); }
+    save(); renderReminder();
+  });
+  $('rem-every').addEventListener('change', e => { state.reminder.every = parseInt(e.target.value, 10) || 30; state.reminder.notifiedFor = null; save(); renderReminder(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { renderLive(); tickReminder(); } });
+
+  buildTable(); buildMeds(); fillProfile(); fillQuick(); render(); renderReminder();
+  setInterval(() => { renderLive(); tickReminder(); }, 1000);
   window.addEventListener('resize', () => renderLive());
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => renderLive());
   new MutationObserver(() => renderLive()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
