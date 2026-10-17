@@ -1,0 +1,14 @@
+name = "bafometro-push"
+main = "worker.js"
+compatibility_date = "2026-10-17"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bafometro-push"
+database_id = "d4065ce5-d86c-4f01-8bb1-a682307ae15d"
+
+[triggers]
+crons = ["* * * * *"]
+
+[observability]
+enabled = true
