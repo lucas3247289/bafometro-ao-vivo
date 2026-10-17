@@ -1,5 +1,5 @@
 // Service worker do Bafômetro ao Vivo: funciona offline e trata o toque nas notificações
-const CACHE = 'bafometro-v6';
+const CACHE = 'bafometro-v7';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

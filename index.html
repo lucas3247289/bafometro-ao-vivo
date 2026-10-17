@@ -181,6 +181,29 @@ canvas { display: block; width: 100%; height: 100%; }
 .switch input:disabled { cursor: not-allowed; }
 .switch input:disabled + span { opacity: .45; }
 @media (prefers-reduced-motion: reduce) { .switch span, .switch span::after { transition: none; } }
+/* Favoritos, água, comida e edição de horários */
+.favs { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface-2); max-width: 100%; }
+.chip button { padding: 7px 12px; border-radius: 0; background: transparent; color: var(--fg); font-weight: 600; font-size: 13.5px; min-width: 0; overflow-wrap: anywhere; text-align: left; }
+.chip button:hover { background: var(--accent-soft); }
+.chip .chip-rm { padding: 7px 10px; color: var(--muted); border-left: 1px solid var(--line); font-weight: 500; }
+.chip small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.fav-save { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+@media (max-width: 560px) { .fav-save { grid-template-columns: minmax(0,1fr); } }
+.water-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 8px; background: var(--water-soft); border: 1px solid var(--water); }
+.water-card b { display: block; color: var(--water); }
+.food-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.glass.water { background: var(--water-soft); color: var(--water); }
+.glass.food { background: var(--surface); color: var(--muted); border: 1px solid var(--line); font-size: 12px; }
+.log-row .edit-toggle { background: transparent; border: 0; padding: 0; color: var(--accent); font-size: 12.5px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.edit-list { grid-column: 1 / -1; display: grid; gap: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.edit-item { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: center; }
+.edit-item input { font-family: var(--font-mono); }
+.edit-item button { padding: 7px 10px; font-size: 13px; }
+.totals { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)) !important; }
+:root { --water: #1f6fb2; --water-soft: #e1eef9; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --water: #6fb3ee; --water-soft: #16283a; } }
+:root[data-theme="dark"] { --water: #6fb3ee; --water-soft: #16283a; }
 .install-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
 :root { --knob: #ffffff; --ios-green: #34c759; }
 </style>
@@ -213,8 +236,25 @@ canvas { display: block; width: 100%; height: 100%; }
           </div>
         </div>
         <div class="field">
-          <span class="label-txt">Comeu?</span>
-          <div class="seg" role="radiogroup" aria-label="Comeu">
+          <label for="formula">Fórmula</label>
+          <select id="formula">
+            <option value="widmark" selected>Widmark (fator fixo)</option>
+            <option value="watson">Watson (altura e idade)</option>
+            <option value="forrest">Forrest (altura)</option>
+          </select>
+        </div>
+        <div class="field" id="height-row" hidden>
+          <label for="height">Altura</label>
+          <div class="suffix"><input type="number" id="height" min="100" max="230" step="1" value="175"><span>cm</span></div>
+        </div>
+        <div class="field" id="age-row" hidden>
+          <label for="age">Idade</label>
+          <div class="suffix"><input type="number" id="age" min="14" max="110" step="1" value="30"><span>anos</span></div>
+        </div>
+        <p class="hint" id="r-hint"></p>
+        <div class="field">
+          <span class="label-txt">Comeu antes de começar?</span>
+          <div class="seg" role="radiogroup" aria-label="Comeu antes de começar">
             <input type="radio" name="food" id="food-jejum" value="jejum" checked><label for="food-jejum">Estômago vazio</label>
             <input type="radio" name="food" id="food-lanche" value="lanche"><label for="food-lanche">Lanche leve</label>
             <input type="radio" name="food" id="food-refeicao" value="refeicao"><label for="food-refeicao">Refeição</label>
@@ -289,6 +329,7 @@ canvas { display: block; width: 100%; height: 100%; }
           <div class="tot"><span>Líquido total</span><b id="t-liquid">0 ml</b></div>
           <div class="tot"><span>Álcool puro</span><b id="t-alc-ml">0 ml</b></div>
           <div class="tot"><span>Álcool puro (massa)</span><b id="t-alc-g">0 g</b></div>
+          <div class="tot"><span>Água</span><b id="t-water">0 ml</b></div>
         </div>
       </section>
 
@@ -297,7 +338,15 @@ canvas { display: block; width: 100%; height: 100%; }
           <h2>O que você bebeu</h2>
           <span class="hint">+1 adiciona mais uma igual, começando agora</span>
         </div>
+        <div class="water-card" id="water-card" hidden>
+          <div style="min-width:0"><b>Hora de um copo d’água</b><span class="hint" id="water-msg"></span></div>
+          <button type="button" class="btn-primary" id="water-add">Bebi água</button>
+        </div>
         <div class="log" id="log"></div>
+
+        <div class="label" style="margin-top:4px">Favoritos</div>
+        <div class="favs" id="favs"></div>
+
         <div class="label" style="margin-top:4px">Outra bebida agora</div>
         <div class="quick">
           <select id="q-type" aria-label="Tipo"></select>
@@ -305,6 +354,17 @@ canvas { display: block; width: 100%; height: 100%; }
           <select id="q-abv" aria-label="Teor alcoólico"></select>
           <button type="button" class="btn-primary" id="q-add">Adicionar</button>
         </div>
+        <div class="fav-save">
+          <input type="text" id="fav-name" maxlength="40" placeholder="Nome do favorito, ex.: Heineken long neck" aria-label="Nome do favorito">
+          <button type="button" class="btn-ghost" id="fav-save">Salvar como favorito</button>
+        </div>
+
+        <div class="label" style="margin-top:4px">Comida durante a noite</div>
+        <div class="food-btns">
+          <button type="button" class="btn-ghost" data-food="lanche">Comi um lanche agora</button>
+          <button type="button" class="btn-ghost" data-food="refeicao">Comi uma refeição agora</button>
+        </div>
+        <div class="log" id="food-log"></div>
       </section>
 
       <section class="panel" id="install-panel" hidden>
@@ -349,8 +409,26 @@ canvas { display: block; width: 100%; height: 100%; }
         <p class="hint" id="rem-diag" hidden></p>
       </section>
 
+      <section class="panel">
+        <div class="switch-row">
+          <div>
+            <h2>Lembrete de água</h2>
+            <span class="hint" id="water-status">A cada 2 bebidas alcoólicas, sugere um copo d’água. Se você não registrar a água em 10 min, chega uma notificação.</span>
+          </div>
+          <label class="switch" for="water-on"><input type="checkbox" id="water-on" role="switch" aria-label="Ativar lembrete de água"><span></span></label>
+        </div>
+        <div class="field">
+          <label for="water-ml">Tamanho do copo</label>
+          <select id="water-ml">
+            <option value="200">Copo 200 ml</option>
+            <option value="300" selected>Copo 300 ml</option>
+            <option value="500">Garrafa 500 ml</option>
+          </select>
+        </div>
+      </section>
+
       <div class="disclaimer">
-        <p><b>Como é calculado.</b> Base de Widmark: álcool absorvido em gramas ÷ (peso em gramas × r) × 100, com r = 0,68 (homens) e 0,55 (mulheres). Cada bebida é ingerida aos poucos durante o tempo de beber e passa do estômago para o sangue gradualmente. De estômago vazio, a absorção é rápida e o pico vem cerca de 30 a 45 min depois do gole. Com comida, parte do álcool fica retida e é absorvida em horas, uma parte não chega ao sangue e o pico é mais baixo e mais tardio. A eliminação é de 0,015% por hora (um pouco mais rápida depois de uma refeição). AAS e bloqueadores H2 podem aumentar o álcool no sangue em 10 a 20%. Calmantes, antidepressivos, antialérgicos e opioides não mudam o número, mas somam efeito com o álcool.</p>
+        <p><b>Como é calculado.</b> Base de Widmark: álcool absorvido em gramas ÷ (peso em gramas × r) × 100. No modo padrão, r é fixo: 0,68 (homens) e 0,55 (mulheres). Watson estima a água do corpo pela altura, peso e idade (r = água corporal ÷ (0,8 × peso)); Forrest usa o IMC (r = 1,0181 − 0,01213 × IMC para homens e 0,8736 − 0,0124 × IMC para mulheres). A comida registrada durante a noite retém o álcool que ainda está no estômago e o que vier depois por cerca de 2 h (lanche) ou 4 h (refeição). Cada bebida é ingerida aos poucos durante o tempo de beber e passa do estômago para o sangue gradualmente. De estômago vazio, a absorção é rápida e o pico vem cerca de 30 a 45 min depois do gole. Com comida, parte do álcool fica retida e é absorvida em horas, uma parte não chega ao sangue e o pico é mais baixo e mais tardio. A eliminação é de 0,015% por hora (um pouco mais rápida depois de uma refeição). AAS e bloqueadores H2 podem aumentar o álcool no sangue em 10 a 20%. Calmantes, antidepressivos, antialérgicos e opioides não mudam o número, mas somam efeito com o álcool.</p>
         <p>Referências: Jones (1991), cerveja com e sem refeição <a href="https://www.ojp.gov/ncjrs/virtual-library/abstracts/concentration-time-profiles-ethanol-capillary-blood-after-ingestion" target="_blank" rel="noopener">ojp.gov</a>; Jones &amp; Neri (1991), absorção em duas fases com refeição <a href="https://ojp.gov/ncjrs/virtual-library/abstracts/evaluation-blood-ethanol-profiles-after-consumption-alcohol" target="_blank" rel="noopener">ojp.gov</a>; interações com remédios, NIAAA <a href="https://www.niaaa.nih.gov/sites/default/files/potentially-serious-alcohol-medication-interactions-in-older-adults.pdf" target="_blank" rel="noopener">niaaa.nih.gov</a>.</p>
         <p>É uma estimativa: metabolismo, genética e saúde mudam o resultado real. No Brasil a Lei Seca tem tolerância zero: se bebeu, não dirija.</p>
       </div>
@@ -370,9 +448,9 @@ canvas { display: block; width: 100%; height: 100%; }
 
   // Efeito da comida: fração que chega ao sangue, fração retida (absorção lenta), velocidade lenta (1/h) e eliminação (%/h)
   const FOOD = {
-    jejum:    { bio: 1.00, slow: 0.00, ks: 1.0, beta: 0.015, name: 'estômago vazio' },
-    lanche:   { bio: 0.90, slow: 0.45, ks: 1.2, beta: 0.016, name: 'lanche leve' },
-    refeicao: { bio: 0.80, slow: 0.70, ks: 0.7, beta: 0.017, name: 'refeição' }
+    jejum:    { bio: 1.00, slow: 0.00, ks: 1.0, beta: 0.015, name: 'estômago vazio', rank: 0 },
+    lanche:   { bio: 0.90, slow: 0.45, ks: 1.2, beta: 0.016, name: 'lanche leve', rank: 1, hours: 2 },
+    refeicao: { bio: 0.80, slow: 0.70, ks: 0.7, beta: 0.017, name: 'refeição', rank: 2, hours: 4 }
   };
   const PACE = { rapido: 0.55, normal: 1, devagar: 1.65 };
   const MEDS = [
@@ -390,17 +468,25 @@ canvas { display: block; width: 100%; height: 100%; }
     beer:   { name: 'Cerveja',    sizes: [['Lata 350 ml',350],['Long neck 330 ml',330],['Latão 473 ml',473],['Chopp 300 ml',300],['Pint 568 ml',568],['Garrafa 600 ml',600],['Litrão 1 L',1000]], abvs: [3,4,4.5,4.7,5,5.5,6,7,8,9,10,12], dSize: 350, dAbv: 5, minPer: 15 / 350 },
     wine:   { name: 'Vinho',      sizes: [['Taça 150 ml',150],['Taça cheia 250 ml',250],['Garrafa 750 ml',750]], abvs: [8,10,11,12,12.5,13,13.5,14,15,16,20], dSize: 150, dAbv: 12, minPer: 18 / 150 },
     liquor: { name: 'Destilado',  sizes: [['Dose 50 ml',50],['Dose pequena 30 ml',30],['Dose dupla 100 ml',100]], abvs: [20,30,35,38,40,43,45,50], dSize: 50, dAbv: 40, minPer: 1.5 / 50 },
-    other:  { name: 'Outra',      sizes: [], abvs: [], dSize: 250, dAbv: 8, minPer: 12 / 350 }
+    other:  { name: 'Outra',      sizes: [], abvs: [], dSize: 250, dAbv: 8, minPer: 12 / 350 },
+    water:  { name: 'Água',       sizes: [['Copo 200 ml',200],['Copo 300 ml',300],['Garrafa 500 ml',500]], abvs: [0], dSize: 300, dAbv: 0, minPer: 3 / 300, water: true }
   };
+  const ALC_KEYS = ['beer', 'wine', 'liquor', 'other'];
+  const isWater = d => d.type === 'water';
 
   const $ = id => document.getElementById(id);
   const nf = (n, d) => n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
-  const DEF_PROFILE = { sex: 'm', weight: 70, unit: 'kg', food: 'jejum', pace: 'normal', meds: [] };
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const DEF_PROFILE = { sex: 'm', weight: 70, unit: 'kg', food: 'jejum', pace: 'normal', meds: [], formula: 'widmark', height: 175, age: 30 };
 
   // ---------- Estado ----------
   let state = load() || defaultState();
   state.reminder = { on: false, every: 30, notifiedFor: null, ...state.reminder };
+  state.water = { on: false, ml: 300, notifiedFor: null, ...state.water };
   state.profile = { ...DEF_PROFILE, ...state.profile };
+  state.favs = Array.isArray(state.favs) ? state.favs : [];
+  state.foods = Array.isArray(state.foods) ? state.foods : [];
+  state.drinks.forEach(d => { if (!d.id) d.id = uid(); });
 
   function defaultState() {
     // Exemplo inicial: homem, 70 kg, 2 cervejas em lata nas últimas 2 horas
@@ -408,7 +494,8 @@ canvas { display: block; width: 100%; height: 100%; }
     return {
       profile: { ...DEF_PROFILE },
       form: { hours: 2, mins: 0, rows: { beer: { n: 2, ml: 350, abv: 5 }, wine: { n: '', ml: 150, abv: 12 }, liquor: { n: '', ml: 50, abv: 40 }, other: { n: '', ml: 250, unit: 'ml', abv: 8 } } },
-      drinks: [ { type: 'beer', ml: 350, abv: 5, t: now - 120 * 60e3 }, { type: 'beer', ml: 350, abv: 5, t: now - 60 * 60e3 } ]
+      drinks: [ { id: uid(), type: 'beer', ml: 350, abv: 5, t: now - 120 * 60e3 }, { id: uid(), type: 'beer', ml: 350, abv: 5, t: now - 60 * 60e3 } ],
+      foods: [], favs: []
     };
   }
   function load() { try { const s = JSON.parse(localStorage.getItem(STORE)); return s && Array.isArray(s.drinks) ? s : null; } catch { return null; } }
@@ -418,7 +505,7 @@ canvas { display: block; width: 100%; height: 100%; }
   const opt = (v, l, sel) => `<option value="${v}"${sel ? ' selected' : ''}>${l}</option>`;
   function buildTable() {
     const t = $('drinks-table');
-    for (const key of ['beer','wine','liquor','other']) {
+    for (const key of ALC_KEYS) {
       const ty = TYPES[key], row = state.form.rows[key];
       let size, abv;
       if (key === 'other') {
@@ -445,6 +532,9 @@ canvas { display: block; width: 100%; height: 100%; }
     $('weight').value = p.weight;
     $('wunit').value = p.unit;
     $('pace').value = p.pace;
+    $('formula').value = p.formula;
+    $('height').value = p.height;
+    $('age').value = p.age;
     MEDS.forEach(m => $('med-' + m.id).checked = p.meds.includes(m.id));
     if (state.drinks.length) {
       const el = Math.max(0, Date.now() - firstT());
@@ -460,9 +550,32 @@ canvas { display: block; width: 100%; height: 100%; }
       weight: w > 0 ? w : state.profile.weight,
       unit: $('wunit').value,
       pace: $('pace').value,
-      meds: MEDS.filter(m => $('med-' + m.id).checked).map(m => m.id)
+      meds: MEDS.filter(m => $('med-' + m.id).checked).map(m => m.id),
+      formula: $('formula').value,
+      height: parseFloat($('height').value) > 0 ? parseFloat($('height').value) : state.profile.height,
+      age: parseFloat($('age').value) > 0 ? parseFloat($('age').value) : state.profile.age
     };
     save(); render();
+  }
+  // Fator r de Widmark: fixo, ou estimado pela água corporal (Watson) ou pelo IMC (Forrest)
+  function rFactor() {
+    const p = state.profile, kg = p.unit === 'lb' ? p.weight * 0.453592 : p.weight, h = p.height, male = p.sex === 'm';
+    let r = R[p.sex];
+    if (p.formula === 'watson') {
+      const tbw = male ? 2.447 - 0.09516 * p.age + 0.1074 * h + 0.3362 * kg : -2.097 + 0.1069 * h + 0.2466 * kg;
+      r = tbw / (0.8 * kg);
+    } else if (p.formula === 'forrest') {
+      const bmi = kg / ((h / 100) ** 2);
+      r = male ? 1.0181 - 0.01213 * bmi : 0.8736 - 0.0124 * bmi;
+    }
+    return Math.min(0.95, Math.max(0.4, r));
+  }
+  function renderFormula() {
+    const f = state.profile.formula;
+    $('height-row').hidden = f === 'widmark';
+    $('age-row').hidden = f !== 'watson' || state.profile.sex === 'f';
+    const names = { widmark: 'fixo de Widmark', watson: 'Watson', forrest: 'Forrest' };
+    $('r-hint').textContent = `Fator r usado (${names[f]}): ${nf(rFactor(), 2)}. Quanto maior o r, mais diluído o álcool fica no corpo.` + (f === 'watson' && state.profile.sex === 'f' ? ' Para mulheres, a fórmula de Watson não usa a idade.' : '');
   }
 
   $('form').addEventListener('submit', e => {
@@ -471,7 +584,7 @@ canvas { display: block; width: 100%; height: 100%; }
     const h = Math.max(0, parseFloat($('hours').value) || 0), m = Math.max(0, parseFloat($('mins').value) || 0);
     const elapsed = (h * 60 + m) * 60e3, start = Date.now() - elapsed;
     const rows = {}, items = [];
-    for (const key of Object.keys(TYPES)) {
+    for (const key of ALC_KEYS) {
       const n = Math.max(0, Math.floor(parseFloat($(`r-${key}-n`).value) || 0));
       let ml = parseFloat($(`r-${key}-ml`).value) || 0, abv = parseFloat($(`r-${key}-abv`).value) || 0;
       rows[key] = { n: n || '', ml, abv };
@@ -484,17 +597,19 @@ canvas { display: block; width: 100%; height: 100%; }
     // Distribui as bebidas em intervalos iguais entre o 1º gole e agora
     const gap = items.length > 1 ? elapsed / items.length : 0;
     state.form = { hours: h, mins: m, rows };
-    state.drinks = items.map((d, i) => ({ ...d, t: start + i * gap }));
+    state.drinks = items.map((d, i) => ({ ...d, id: uid(), t: start + i * gap }));
+    state.foods = [];
     save(); render();
     toast(items.length ? `Sessão iniciada com ${items.length} bebida${items.length > 1 ? 's' : ''}` : 'Nenhuma bebida informada');
   });
   $('form').addEventListener('change', e => { if (!e.target.id.startsWith('r-') && e.target.id !== 'hours' && e.target.id !== 'mins') readProfile(); });
-  $('weight').addEventListener('input', readProfile);
+  ['weight', 'height', 'age'].forEach(id => $(id).addEventListener('input', readProfile));
 
   $('clear').addEventListener('click', () => {
-    for (const key of Object.keys(TYPES)) $(`r-${key}-n`).value = '';
+    for (const key of ALC_KEYS) $(`r-${key}-n`).value = '';
     $('hours').value = 0; $('mins').value = 0;
     state.drinks = [];
+    state.foods = [];
     for (const k in state.form.rows) state.form.rows[k].n = '';
     save(); render(); toast('Sessão zerada');
   });
@@ -510,21 +625,101 @@ canvas { display: block; width: 100%; height: 100%; }
       $('q-size').innerHTML = T.sizes.map(([l,v]) => opt(v, l, v === T.dSize)).join('');
       $('q-abv').innerHTML = T.abvs.map(v => opt(v, nf(v, v%1?1:0) + '%', v === T.dAbv)).join('');
     }
+    $('q-abv').hidden = !!T.water;
   }
   $('q-type').innerHTML = Object.entries(TYPES).map(([k, t]) => opt(k, t.name, k === 'beer')).join('');
   $('q-type').addEventListener('change', fillQuick);
   $('q-add').addEventListener('click', () => addDrink($('q-type').value, parseFloat($('q-size').value), parseFloat($('q-abv').value)));
 
   function addDrink(type, ml, abv) {
-    state.drinks.push({ type, ml, abv, t: Date.now() });
+    const before = waterInfo().due;
+    state.drinks.push({ id: uid(), type, ml, abv, t: Date.now() });
     save(); render();
-    toast(`+1 ${TYPES[type].name.toLowerCase()} ${nf(ml, 0)} ml · ${nf(abv, abv%1?1:0)}%`);
+    if (type === 'water') toast(`+1 água ${nf(ml, 0)} ml`);
+    else if (state.water.on && !before && waterInfo().due) toast('2 bebidas desde a última água: que tal um copo agora?');
+    else toast(`+1 ${TYPES[type].name.toLowerCase()} ${nf(ml, 0)} ml · ${nf(abv, abv%1?1:0)}%`);
   }
   function removeLast(key) {
     for (let i = state.drinks.length - 1; i >= 0; i--) if (gkey(state.drinks[i]) === key) { state.drinks.splice(i, 1); break; }
     save(); render();
   }
   const gkey = d => `${d.type}|${d.ml}|${d.abv}`;
+
+  // ---------- Favoritos ----------
+  $('fav-save').addEventListener('click', () => {
+    const type = $('q-type').value, ml = parseFloat($('q-size').value), abv = TYPES[type].water ? 0 : parseFloat($('q-abv').value);
+    const name = $('fav-name').value.trim() || `${TYPES[type].name} ${nf(ml, 0)} ml`;
+    if (state.favs.some(f => f.name.toLowerCase() === name.toLowerCase())) { toast('Já existe um favorito com esse nome'); return; }
+    state.favs.push({ id: uid(), name, type, ml, abv });
+    $('fav-name').value = '';
+    save(); renderFavs(); toast(`Favorito salvo: ${name}`);
+  });
+  function renderFavs() {
+    const el = $('favs');
+    if (!state.favs.length) { el.innerHTML = '<span class="hint">Escolha uma bebida abaixo, dê um nome e toque em “Salvar como favorito”. Ela aparece aqui para adicionar com um toque.</span>'; return; }
+    el.innerHTML = state.favs.map(f => `<span class="chip"><button type="button" data-fav="${f.id}">+ ${esc(f.name)}<small>${nf(f.ml, 0)} ml${TYPES[f.type].water ? '' : ' · ' + nf(f.abv, f.abv % 1 ? 1 : 0) + '%'}</small></button><button type="button" class="chip-rm" data-fav-rm="${f.id}" aria-label="Remover favorito ${esc(f.name)}">×</button></span>`).join('');
+  }
+  $('favs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.fav) { const f = state.favs.find(x => x.id === b.dataset.fav); if (f) addDrink(f.type, f.ml, f.abv); }
+    if (b.dataset.favRm) { state.favs = state.favs.filter(x => x.id !== b.dataset.favRm); save(); renderFavs(); toast('Favorito removido'); }
+  });
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ---------- Água ----------
+  // Quantas bebidas alcoólicas desde o último copo d'água; o lembrete vale a partir da 2ª
+  function waterInfo() {
+    const list = sorted();
+    const lastW = list.filter(isWater).pop();
+    const alc = list.filter(d => !isWater(d) && (!lastW || d.t > lastW.t));
+    return { count: alc.length, due: alc.length >= 2, since: alc.length >= 2 ? alc[1].t : null };
+  }
+  function renderWater() {
+    const w = state.water, info = waterInfo();
+    $('water-on').checked = w.on;
+    $('water-ml').value = String(w.ml);
+    $('water-card').hidden = !(w.on && info.due);
+    $('water-msg').textContent = ` ${info.count} bebidas alcoólicas desde a última água. Toque para registrar um copo de ${nf(w.ml, 0)} ml.`;
+    $('water-add').textContent = `Bebi água (${nf(w.ml, 0)} ml)`;
+    $('water-status').textContent = !w.on ? 'A cada 2 bebidas alcoólicas, sugere um copo d’água. Se você não registrar a água em 10 min, chega uma notificação.'
+      : info.due ? `Ligado. Hora da água: ${info.count} bebidas desde o último copo.` : `Ligado. ${info.count} de 2 bebidas até o próximo copo d’água.`;
+  }
+  $('water-add').addEventListener('click', () => addDrink('water', state.water.ml, 0));
+  $('water-ml').addEventListener('change', e => { state.water.ml = parseInt(e.target.value, 10) || 300; save(); renderWater(); });
+
+  // ---------- Comida durante a noite ----------
+  document.querySelector('.food-btns').addEventListener('click', e => {
+    const b = e.target.closest('button[data-food]'); if (!b) return;
+    state.foods.push({ id: uid(), kind: b.dataset.food, t: Date.now() });
+    save(); render(); toast(b.dataset.food === 'lanche' ? 'Lanche registrado' : 'Refeição registrada');
+  });
+  function renderFoods() {
+    const el = $('food-log');
+    const list = [...state.foods].sort((a, b) => a.t - b.t);
+    el.innerHTML = list.length ? list.map(f => `<div class="log-row">
+        <div class="glass food" aria-hidden="true">${f.kind === 'lanche' ? 'L' : 'R'}</div>
+        <div style="min-width:0"><div class="name">${f.kind === 'lanche' ? 'Lanche' : 'Refeição'}</div>
+          <div class="meta">retém o álcool por ~${FOOD[f.kind].hours} h</div></div>
+        <span></span>
+        <div class="edit-list"><div class="edit-item"><input type="datetime-local" data-food-t="${f.id}" value="${toLocalInput(f.t)}" max="${toLocalInput(Date.now())}" aria-label="Horário da comida">
+          <button type="button" class="btn-minus" data-food-rm="${f.id}" aria-label="Remover comida">Remover</button></div></div>
+      </div>`).join('') : '';
+  }
+  $('food-log').addEventListener('click', e => {
+    const b = e.target.closest('button[data-food-rm]'); if (!b) return;
+    state.foods = state.foods.filter(f => f.id !== b.dataset.foodRm); save(); render();
+  });
+  $('food-log').addEventListener('change', e => {
+    const id = e.target.dataset && e.target.dataset.foodT; if (!id) return;
+    const f = state.foods.find(x => x.id === id), t = fromLocalInput(e.target.value);
+    if (f && t) { f.t = Math.min(t, Date.now()); save(); render(); }
+  });
+
+  // ---------- Edição de horários ----------
+  const pad2 = n => String(n).padStart(2, '0');
+  const toLocalInput = t => { const d = new Date(t); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  const fromLocalInput = v => { const t = new Date(v).getTime(); return Number.isFinite(t) ? t : null; };
+  const openGroups = new Set();
 
   // ---------- Cálculo: simulação minuto a minuto ----------
   const grams = d => d.ml * d.abv / 100 * DENSITY;
@@ -536,28 +731,41 @@ canvas { display: block; width: 100%; height: 100%; }
   const medFactor = () => state.profile.meds.reduce((f, id) => f * (MEDS.find(m => m.id === id)?.factor || 1), 1);
 
   let simCache = { key: '', sim: null };
+  // Comida ativa num instante: a mais "pesada" entre a comida de antes de começar e as registradas durante a noite
+  function foodEvents(t0) {
+    const ev = state.foods.map(f => ({ kind: f.kind, t: f.t }));
+    if (state.profile.food !== 'jejum') ev.push({ kind: state.profile.food, t: t0 - 30 * 60e3 });
+    return ev;
+  }
+  function foodAt(ev, t) {
+    let best = 'jejum';
+    for (const e of ev) if (t >= e.t && t < e.t + FOOD[e.kind].hours * 3600e3 && FOOD[e.kind].rank > FOOD[best].rank) best = e.kind;
+    return FOOD[best];
+  }
   function simulate() {
-    const key = JSON.stringify([state.drinks, state.profile]);
+    const key = JSON.stringify([state.drinks, state.profile, state.foods]);
     if (simCache.key === key) return simCache.sim;
-    const list = sorted();
+    const list = sorted().filter(d => !isWater(d));
     let sim = null;
     if (list.length) {
-      const F = FOOD[state.profile.food], k = 100 / (bodyG() * R[state.profile.sex]);
-      const bio = F.bio * medFactor(), dth = DT / 3600e3;
-      const kf = 1 - Math.exp(-K_FAST * dth), ks = 1 - Math.exp(-F.ks * dth);
-      const spans = list.map(d => ({ a: d.t, b: d.t + drinkMin(d) * 60e3, g: grams(d) * bio }));
+      const k = 100 / (bodyG() * rFactor()), med = medFactor(), dth = DT / 3600e3;
+      const kf = 1 - Math.exp(-K_FAST * dth);
+      const spans = list.map(d => ({ a: d.t, b: d.t + drinkMin(d) * 60e3, g: grams(d) * med }));
       const lastEnd = Math.max(...spans.map(s => s.b));
-      const t0 = list[0].t, bac = [], stom = [];
+      const t0 = list[0].t, bac = [], stom = [], ev = foodEvents(t0);
       let Gf = 0, Gs = 0, B = 0, t = t0;
       for (let i = 0; i < 72 * 60; i++, t += DT) {
         bac.push(B); stom.push(Gf + Gs);
         if (t > lastEnd && Gf + Gs < 0.02 && B <= 0) break;
+        const F = foodAt(ev, t);
+        // comida que chega agora retém parte do álcool que ainda está no estômago
+        for (const e of ev) if (e.t >= t && e.t < t + DT && e.t > t0) { const moved = Gf * FOOD[e.kind].slow; Gf -= moved; Gs += moved; }
         // goles neste minuto
         for (const s of spans) {
           const ov = Math.min(t + DT, s.b) - Math.max(t, s.a);
-          if (ov > 0) { const g = s.g * ov / (s.b - s.a); Gf += g * (1 - F.slow); Gs += g * F.slow; }
+          if (ov > 0) { const g = s.g * F.bio * ov / (s.b - s.a); Gf += g * (1 - F.slow); Gs += g * F.slow; }
         }
-        const af = Gf * kf, as = Gs * ks;
+        const af = Gf * kf, as = Gs * (1 - Math.exp(-F.ks * dth));
         Gf -= af; Gs -= as;
         B = Math.max(0, B + (af + as) * k - F.beta * dth);
       }
@@ -591,7 +799,7 @@ canvas { display: block; width: 100%; height: 100%; }
     return ['Perigo: procure ajuda', 'var(--bad)'];
   }
 
-  function render() { renderLive(); renderTotals(); renderLog(); renderMedAlert(); }
+  function render() { renderFormula(); renderLive(); renderTotals(); renderLog(); renderFoods(); renderFavs(); renderWater(); renderMedAlert(); }
 
   function renderLive() {
     const now = Date.now(), sim = simulate();
@@ -634,35 +842,57 @@ canvas { display: block; width: 100%; height: 100%; }
   }
 
   function renderTotals() {
-    const liq = state.drinks.reduce((s, d) => s + d.ml, 0);
-    const alcMl = state.drinks.reduce((s, d) => s + d.ml * d.abv / 100, 0);
-    $('t-count').textContent = state.drinks.length;
-    $('t-liquid').textContent = liq >= 1000 ? `${nf(liq / 1000, 2)} L` : `${nf(liq, 0)} ml`;
+    const alc = state.drinks.filter(d => !isWater(d));
+    const liq = alc.reduce((s, d) => s + d.ml, 0);
+    const alcMl = alc.reduce((s, d) => s + d.ml * d.abv / 100, 0);
+    const water = state.drinks.filter(isWater).reduce((s, d) => s + d.ml, 0);
+    const vol = v => v >= 1000 ? `${nf(v / 1000, 2)} L` : `${nf(v, 0)} ml`;
+    $('t-count').textContent = alc.length;
+    $('t-liquid').textContent = vol(liq);
+    $('t-water').textContent = vol(water);
     $('t-alc-ml').textContent = `${nf(alcMl, 1)} ml`;
     $('t-alc-g').textContent = `${nf(alcMl * DENSITY, 1)} g`;
   }
 
   function renderLog() {
     const groups = new Map();
-    for (const d of sorted()) { const k = gkey(d); if (!groups.has(k)) groups.set(k, { ...d, n: 0, times: [] }); const g = groups.get(k); g.n++; g.times.push(d.t); }
+    for (const d of sorted()) { const k = gkey(d); if (!groups.has(k)) groups.set(k, { ...d, n: 0, items: [] }); const g = groups.get(k); g.n++; g.items.push(d); }
     const el = $('log');
     if (!groups.size) { el.innerHTML = `<div class="empty">Nenhuma bebida ainda. Preencha o formulário e toque em “Calcular”, ou adicione uma bebida abaixo.</div>`; return; }
+    const maxNow = toLocalInput(Date.now());
     el.innerHTML = [...groups.entries()].map(([k, g]) => {
-      const pure = g.ml * g.abv / 100;
+      const w = TYPES[g.type].water, pure = g.ml * g.abv / 100, open = openGroups.has(k);
+      const name = w ? `Água · ${nf(g.ml, 0)} ml` : `${TYPES[g.type].name} · ${nf(g.ml, 0)} ml · ${nf(g.abv, g.abv%1?1:0)}%`;
+      const meta = (w ? 'sem álcool' : `${nf(pure, 1)} ml de álcool cada · ~${nf(drinkMin(g), 0)} min para beber`) + ` · última às ${fmtClock(g.items[g.items.length - 1].t)}`;
+      const edits = open ? `<div class="edit-list">${g.items.map(d => `<div class="edit-item">
+          <input type="datetime-local" data-edit="${d.id}" value="${toLocalInput(d.t)}" max="${maxNow}" aria-label="Horário desta bebida">
+          <button type="button" class="btn-minus" data-del="${d.id}">Remover</button></div>`).join('')}</div>` : '';
       return `<div class="log-row">
-        <div class="glass" aria-hidden="true">${g.n}×</div>
-        <div style="min-width:0"><div class="name">${TYPES[g.type].name} · ${nf(g.ml, 0)} ml · ${nf(g.abv, g.abv%1?1:0)}%</div>
-          <div class="meta">${nf(pure, 1)} ml de álcool cada · ~${nf(drinkMin(g), 0)} min para beber · última às ${fmtClock(g.times[g.times.length - 1])}</div></div>
+        <div class="glass${w ? ' water' : ''}" aria-hidden="true">${g.n}×</div>
+        <div style="min-width:0"><div class="name">${name}</div>
+          <div class="meta">${meta}</div>
+          <button type="button" class="edit-toggle" data-toggle="${k}" aria-expanded="${open}">${open ? 'Fechar horários' : 'Editar horários'}</button></div>
         <div class="row-btns">
           <button type="button" class="btn-minus" data-rm="${k}" aria-label="Remover uma">−1</button>
           <button type="button" class="btn-plus" data-add="${k}" aria-label="Adicionar mais uma igual">+1</button>
-        </div></div>`;
+        </div>${edits}</div>`;
     }).join('');
   }
   $('log').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.add) { const [type, ml, abv] = b.dataset.add.split('|'); addDrink(type, parseFloat(ml), parseFloat(abv)); }
     if (b.dataset.rm) removeLast(b.dataset.rm);
+    if (b.dataset.toggle) { openGroups.has(b.dataset.toggle) ? openGroups.delete(b.dataset.toggle) : openGroups.add(b.dataset.toggle); renderLog(); }
+    if (b.dataset.del) { state.drinks = state.drinks.filter(d => d.id !== b.dataset.del); save(); render(); toast('Bebida removida'); }
+  });
+  // Corrigir o horário de uma bebida já registrada
+  $('log').addEventListener('change', e => {
+    const id = e.target.dataset && e.target.dataset.edit; if (!id) return;
+    const d = state.drinks.find(x => x.id === id), t = fromLocalInput(e.target.value);
+    if (!d || !t) return;
+    if (t > Date.now()) toast('Horário no futuro: ajustei para agora');
+    d.t = Math.min(t, Date.now());
+    save(); render(); toast(`Horário ajustado para ${fmtDay(d.t)}`);
   });
 
   // ---------- Gráfico (canvas) ----------
@@ -738,9 +968,11 @@ canvas { display: block; width: 100%; height: 100%; }
       ctx.fillText('pico ' + nf(sim.peak, 3) + '%', Math.min(Math.max(X(sim.peakT), pad.l + 40), W - pad.r - 40), Y(sim.peak) - 6);
     }
     // marcas dos goles
-    ctx.fillStyle = C.acc;
-    const seen = new Map();
-    for (const d of state.drinks) { const x = X(d.t), k = Math.round(x), c = seen.get(k) || 0; seen.set(k, c + 1); ctx.fillRect(x - 1.5, H - pad.b - 5 - c * 4, 3, 3); }
+    const seen = new Map(), water = cssVar('--water');
+    for (const d of state.drinks) { if (d.t < t0) continue; const x = X(d.t), k = Math.round(x), c = seen.get(k) || 0; seen.set(k, c + 1); ctx.fillStyle = isWater(d) ? water : C.acc; ctx.fillRect(x - 1.5, H - pad.b - 5 - c * 4, 3, 3); }
+    // comida registrada durante a noite (triângulo no rodapé)
+    ctx.fillStyle = C.muted;
+    for (const f of state.foods) { if (f.t < t0 || f.t > t1) continue; const x = X(f.t); ctx.beginPath(); ctx.moveTo(x, H - pad.b - 12); ctx.lineTo(x - 4, H - pad.b - 5); ctx.lineTo(x + 4, H - pad.b - 5); ctx.closePath(); ctx.fill(); }
     // agora
     const nx = X(now);
     ctx.strokeStyle = C.fg; ctx.lineWidth = 1; ctx.globalAlpha = .5; ctx.beginPath(); ctx.moveTo(nx + .5, pad.t); ctx.lineTo(nx + .5, H - pad.b); ctx.stroke(); ctx.globalAlpha = 1;
@@ -758,7 +990,8 @@ canvas { display: block; width: 100%; height: 100%; }
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   const canNotify = () => 'Notification' in window && 'serviceWorker' in navigator;
-  const lastDrink = () => state.drinks.reduce((a, d) => (!a || d.t > a.t ? d : a), null);
+  // última bebida alcoólica (a água não conta para o lembrete da próxima)
+  const lastDrink = () => state.drinks.reduce((a, d) => (isWater(d) ? a : !a || d.t > a.t ? d : a), null);
   const drinkLabel = d => `${TYPES[d.type].name} ${nf(d.ml, 0)} ml · ${nf(d.abv, d.abv % 1 ? 1 : 0)}%`;
 
   if ('serviceWorker' in navigator) {
@@ -767,6 +1000,12 @@ canvas { display: block; width: 100%; height: 100%; }
   }
   // Só adiciona se a notificação for da última bebida atual (evita somar duas vezes)
   function addLastByToken(token) {
+    token = String(token || '');
+    if (token.startsWith('water:')) {
+      const w = waterInfo();
+      if (w.due && String(w.since) === token.slice(6)) addDrink('water', state.water.ml, 0);
+      return;
+    }
     const last = lastDrink();
     if (!last || String(last.t) !== String(token)) return;
     addDrink(last.type, last.ml, last.abv);
@@ -805,23 +1044,59 @@ canvas { display: block; width: 100%; height: 100%; }
   }
   function queueSync() { clearTimeout(syncTimer); syncTimer = setTimeout(syncPush, 400); }
   // Mantém no servidor só o próximo lembrete deste aparelho
+  // Cada aparelho tem até 2 lembretes no servidor: "next" (próxima bebida) e "water" (copo d'água)
+  function desiredReminders() {
+    const r = state.reminder, last = lastDrink(), w = state.water, wi = waterInfo(), out = {};
+    if (r.on && last) {
+      const at = last.t + r.every * 60e3, sim = simulate(), b = sample(sim?.bac || [], sim, at);
+      out.next = { at, token: String(last.t), tag: 'bafometro-lembrete', title: 'Hora da próxima?', body: `Toque para adicionar +1 ${drinkLabel(last)}. Você deve estar em ~${nf(b, 3)}%.` };
+    }
+    if (w.on && wi.due) {
+      out.water = { at: wi.since + WATER_DELAY, token: 'water:' + wi.since, tag: 'bafometro-agua', title: 'Hora de um copo d’água', body: `${wi.count} bebidas alcoólicas desde a última água. Toque para registrar um copo de ${nf(w.ml, 0)} ml.` };
+    }
+    return out;
+  }
   async function syncPush() {
     if (!canPush()) return;
-    const r = state.reminder, last = lastDrink();
-    const key = JSON.stringify([r.on, r.every, last && last.t]);
+    const want = desiredReminders();
+    const key = JSON.stringify([want.next && [want.next.at, want.next.token], want.water && [want.water.at, want.water.token, state.water.ml]]);
     if (key === lastSyncKey) return;
     try {
       const sub = await getPushSub(false);
       if (!sub) { pushActive = false; return; }
-      if (r.on && last) {
-        const at = last.t + r.every * 60e3, sim = simulate(), b = sample(sim?.bac || [], sim, at);
-        await pushPost('/schedule', { sub: sub.toJSON(), at, token: String(last.t), title: 'Hora da próxima?', body: `Toque para adicionar +1 ${drinkLabel(last)}. Você deve estar em ~${nf(b, 3)}%.` });
-        pushActive = true;
-      } else { await pushPost('/cancel', { sub: sub.toJSON() }); pushActive = false; }
+      for (const kind of ['next', 'water']) {
+        if (want[kind]) await pushPost('/schedule', { sub: sub.toJSON(), kind, ...want[kind] });
+        else await pushPost('/cancel', { sub: sub.toJSON(), kind });
+      }
+      pushActive = !!(state.reminder.on || state.water.on);
       lastSyncKey = key;
     } catch { pushActive = false; lastSyncKey = null; }
     renderReminder();
   }
+  const WATER_DELAY = 10 * 60e3;
+
+  // Liga a permissão de notificação (e a inscrição de push); devolve true se puder notificar
+  async function enableNotifications() {
+    if (!canNotify()) return false;
+    let p = Notification.permission;
+    if (canPush()) { try { await getPushSub(true); } catch {} p = Notification.permission; }
+    if (p === 'default') { try { p = await Notification.requestPermission(); } catch { p = 'denied'; } }
+    lastSyncKey = null;
+    return p === 'granted';
+  }
+  $('water-on').addEventListener('change', async e => {
+    const w = state.water;
+    if (e.target.checked) {
+      w.on = true;
+      render();
+      const ok = await enableNotifications();
+      const wi = waterInfo();
+      // se já passou da hora, não avisa na hora: espera o próximo par de bebidas
+      w.notifiedFor = wi.due && Date.now() >= wi.since + WATER_DELAY ? wi.since : null;
+      toast(ok ? 'Lembrete de água ligado' : 'Lembrete de água ligado só dentro do app (sem permissão de notificação)');
+    } else { w.on = false; toast('Lembrete de água desligado'); }
+    save(); render();
+  });
 
   async function notify(last) {
     const reg = await navigator.serviceWorker.ready;
@@ -842,6 +1117,20 @@ canvas { display: block; width: 100%; height: 100%; }
         r.notifiedFor = last.t; save();
         // com push ativo quem avisa é o servidor; o aviso local fica de reserva
         if (!pushActive && now - due < 15 * 60e3) notify(last).catch(() => {});
+      }
+    }
+    // água: aviso local de reserva quando não há push
+    const w = state.water, wi = waterInfo();
+    if (w.on && wi.due && canNotify() && Notification.permission === 'granted') {
+      const due = wi.since + WATER_DELAY, now = Date.now();
+      if (now >= due && w.notifiedFor !== wi.since) {
+        w.notifiedFor = wi.since; save();
+        if (!pushActive && now - due < 15 * 60e3) {
+          navigator.serviceWorker.ready.then(reg => reg.showNotification('Hora de um copo d’água', {
+            body: `${wi.count} bebidas alcoólicas desde a última água. Toque para registrar um copo de ${nf(w.ml, 0)} ml.`,
+            icon: 'icon-192.png', tag: 'bafometro-agua', data: { token: 'water:' + wi.since }
+          })).catch(() => {});
+        }
       }
     }
     renderReminder();
@@ -870,15 +1159,8 @@ canvas { display: block; width: 100%; height: 100%; }
   $('rem-on').addEventListener('change', async e => {
     const r = state.reminder;
     if (e.target.checked) {
-      let p = Notification.permission;
-      if (canPush()) {
-        // no Safari a inscrição precisa vir direto do toque; ela mesma pede a permissão
-        try { await getPushSub(true); } catch {}
-        p = Notification.permission;
-      }
-      if (p === 'default') { try { p = await Notification.requestPermission(); } catch { p = 'denied'; } }
-      if (p !== 'granted') { r.on = false; save(); renderReminder(); toast('Sem permissão para notificar'); return; }
-      lastSyncKey = null;
+      // no Safari a inscrição precisa vir direto do toque; ela mesma pede a permissão
+      if (!(await enableNotifications())) { r.on = false; save(); renderReminder(); toast('Sem permissão para notificar'); return; }
       r.on = true;
       const last = lastDrink();
       // se a hora da última já passou, espera a próxima bebida em vez de avisar na hora
