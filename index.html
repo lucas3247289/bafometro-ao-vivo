@@ -343,6 +343,10 @@ canvas { display: block; width: 100%; height: 100%; }
           </select>
         </div>
         <p class="hint" id="rem-help"></p>
+        <div class="switch-row">
+          <button type="button" class="btn-ghost" id="rem-test">Enviar teste agora</button>
+        </div>
+        <p class="hint" id="rem-diag" hidden></p>
       </section>
 
       <div class="disclaimer">
@@ -882,6 +886,22 @@ canvas { display: block; width: 100%; height: 100%; }
       toast('Lembrete ligado');
     } else { r.on = false; toast('Lembrete desligado'); }
     save(); renderReminder();
+  });
+  // Diagnóstico: manda um push de teste e mostra a resposta do servidor da Apple/Google
+  $('rem-test').addEventListener('click', async () => {
+    const out = $('rem-diag'); out.hidden = false;
+    const info = [`app instalado: ${isStandalone() ? 'sim' : 'não'}`, `permissão: ${'Notification' in window ? Notification.permission : 'indisponível'}`, `push: ${canPush() ? 'disponível' : 'indisponível'}`];
+    out.textContent = 'Enviando… (' + info.join(' · ') + ')';
+    if (!canPush()) { out.textContent = 'Push indisponível neste navegador. ' + info.join(' · '); return; }
+    try {
+      const sub = await getPushSub(true);
+      if (!sub) { out.textContent = 'Não foi possível criar a inscrição de push. ' + info.join(' · '); return; }
+      const r = await pushPost('/test', { sub: sub.toJSON() });
+      const ok = r.status >= 200 && r.status < 300;
+      out.textContent = (ok ? 'Enviado: o servidor de push aceitou' : 'O servidor de push recusou') + ` (código ${r.status}${r.body ? ', ' + r.body : ''}, ${r.host}). ` + info.join(' · ');
+    } catch (err) {
+      out.textContent = 'Erro ao enviar: ' + ((err && err.message) || err) + '. ' + info.join(' · ');
+    }
   });
   $('rem-every').addEventListener('change', e => { state.reminder.every = parseInt(e.target.value, 10) || 30; state.reminder.notifiedFor = null; save(); renderReminder(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { renderLive(); tickReminder(); } });
