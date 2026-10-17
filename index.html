@@ -61,7 +61,7 @@ body {
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 24px 48px;
 }
-.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px; }
+.wrap { max-width: 880px; margin: 0 auto; display: grid; gap: 20px; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; }
 h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 4vw, 40px); letter-spacing: -.02em; margin: 0; text-wrap: balance; }
 h1 span { color: var(--accent); }
@@ -72,8 +72,7 @@ h1 span { color: var(--accent); }
 h2 { font-family: var(--font-display); font-weight: 700; font-size: 18px; margin: 0; }
 .label { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 
-.grid { display: grid; grid-template-columns: minmax(0, 410px) minmax(0, 1fr); gap: 20px; align-items: start; }
-@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
 .col { display: grid; gap: 20px; min-width: 0; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
 
@@ -217,81 +216,6 @@ canvas { display: block; width: 100%; height: 100%; }
   </header>
 
   <div class="grid">
-    <!-- Coluna de entrada -->
-    <div class="col">
-      <form class="panel" id="form" novalidate>
-        <h2>Seus dados</h2>
-        <div class="field">
-          <span class="label-txt">Sexo</span>
-          <div class="seg" role="radiogroup" aria-label="Sexo">
-            <input type="radio" name="sex" id="sex-m" value="m" checked><label for="sex-m">Masculino</label>
-            <input type="radio" name="sex" id="sex-f" value="f"><label for="sex-f">Feminino</label>
-          </div>
-        </div>
-        <div class="field">
-          <label for="weight">Peso corporal</label>
-          <div class="pair">
-            <input type="number" id="weight" min="20" max="400" step="0.1" value="70">
-            <select id="wunit"><option value="kg">quilos</option><option value="lb">libras</option></select>
-          </div>
-        </div>
-        <div class="field">
-          <label for="formula">Fórmula</label>
-          <select id="formula">
-            <option value="widmark" selected>Widmark (fator fixo)</option>
-            <option value="watson">Watson (altura e idade)</option>
-            <option value="forrest">Forrest (altura)</option>
-          </select>
-        </div>
-        <div class="field" id="height-row" hidden>
-          <label for="height">Altura</label>
-          <div class="suffix"><input type="number" id="height" min="100" max="230" step="1" value="175"><span>cm</span></div>
-        </div>
-        <div class="field" id="age-row" hidden>
-          <label for="age">Idade</label>
-          <div class="suffix"><input type="number" id="age" min="14" max="110" step="1" value="30"><span>anos</span></div>
-        </div>
-        <p class="hint" id="r-hint"></p>
-        <div class="field">
-          <span class="label-txt">Comeu antes de começar?</span>
-          <div class="seg" role="radiogroup" aria-label="Comeu antes de começar">
-            <input type="radio" name="food" id="food-jejum" value="jejum" checked><label for="food-jejum">Estômago vazio</label>
-            <input type="radio" name="food" id="food-lanche" value="lanche"><label for="food-lanche">Lanche leve</label>
-            <input type="radio" name="food" id="food-refeicao" value="refeicao"><label for="food-refeicao">Refeição</label>
-          </div>
-        </div>
-        <div class="field">
-          <label for="pace">Ritmo de beber</label>
-          <select id="pace">
-            <option value="rapido">Rápido (lata em ~8 min)</option>
-            <option value="normal" selected>Normal (lata em ~15 min)</option>
-            <option value="devagar">Devagar (lata em ~25 min)</option>
-          </select>
-        </div>
-        <div class="field top">
-          <span class="label-txt">Está tomando remédio?</span>
-          <div class="meds" id="meds"></div>
-        </div>
-        <div class="field">
-          <span class="label-txt">Tempo desde o 1º gole</span>
-          <div class="pair">
-            <div class="suffix"><input type="number" id="hours" min="0" max="72" value="2" aria-label="Horas"><span>horas</span></div>
-            <div class="suffix"><input type="number" id="mins" min="0" max="59" value="0" aria-label="Minutos"><span>min</span></div>
-          </div>
-        </div>
-
-        <h2 style="margin-top:6px">Quanto você já bebeu</h2>
-        <div class="drinks-table" id="drinks-table">
-          <div class="head">Tipo</div><div class="head">Qtd.</div><div class="head">Tamanho</div><div class="head">Teor</div>
-        </div>
-        <div class="actions">
-          <button type="submit" class="btn-primary">Calcular e acompanhar</button>
-          <button type="button" class="btn-ghost" id="clear">Limpar</button>
-        </div>
-        <p class="hint">“Calcular” recomeça a sessão e distribui as bebidas acima ao longo do tempo desde o 1º gole. Depois disso, use os botões <b>+1</b> à direita quando abrir a próxima. Sexo, peso, comida, ritmo e remédios mudam o cálculo na hora.</p>
-      </form>
-    </div>
-
     <!-- Coluna ao vivo -->
     <div class="col">
       <section class="panel" aria-live="polite">
@@ -426,6 +350,78 @@ canvas { display: block; width: 100%; height: 100%; }
           </select>
         </div>
       </section>
+
+      <form class="panel" id="form" novalidate>
+        <h2>Seus dados</h2>
+        <div class="field">
+          <span class="label-txt">Sexo</span>
+          <div class="seg" role="radiogroup" aria-label="Sexo">
+            <input type="radio" name="sex" id="sex-m" value="m" checked><label for="sex-m">Masculino</label>
+            <input type="radio" name="sex" id="sex-f" value="f"><label for="sex-f">Feminino</label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="weight">Peso corporal</label>
+          <div class="pair">
+            <input type="number" id="weight" min="20" max="400" step="0.1" value="70">
+            <select id="wunit"><option value="kg">quilos</option><option value="lb">libras</option></select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="formula">Fórmula</label>
+          <select id="formula">
+            <option value="widmark" selected>Widmark (fator fixo)</option>
+            <option value="watson">Watson (altura e idade)</option>
+            <option value="forrest">Forrest (altura)</option>
+          </select>
+        </div>
+        <div class="field" id="height-row" hidden>
+          <label for="height">Altura</label>
+          <div class="suffix"><input type="number" id="height" min="100" max="230" step="1" value="175"><span>cm</span></div>
+        </div>
+        <div class="field" id="age-row" hidden>
+          <label for="age">Idade</label>
+          <div class="suffix"><input type="number" id="age" min="14" max="110" step="1" value="30"><span>anos</span></div>
+        </div>
+        <p class="hint" id="r-hint"></p>
+        <div class="field">
+          <span class="label-txt">Comeu antes de começar?</span>
+          <div class="seg" role="radiogroup" aria-label="Comeu antes de começar">
+            <input type="radio" name="food" id="food-jejum" value="jejum" checked><label for="food-jejum">Estômago vazio</label>
+            <input type="radio" name="food" id="food-lanche" value="lanche"><label for="food-lanche">Lanche leve</label>
+            <input type="radio" name="food" id="food-refeicao" value="refeicao"><label for="food-refeicao">Refeição</label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="pace">Ritmo de beber</label>
+          <select id="pace">
+            <option value="rapido">Rápido (lata em ~8 min)</option>
+            <option value="normal" selected>Normal (lata em ~15 min)</option>
+            <option value="devagar">Devagar (lata em ~25 min)</option>
+          </select>
+        </div>
+        <div class="field top">
+          <span class="label-txt">Está tomando remédio?</span>
+          <div class="meds" id="meds"></div>
+        </div>
+        <div class="field">
+          <span class="label-txt">Tempo desde o 1º gole</span>
+          <div class="pair">
+            <div class="suffix"><input type="number" id="hours" min="0" max="72" value="2" aria-label="Horas"><span>horas</span></div>
+            <div class="suffix"><input type="number" id="mins" min="0" max="59" value="0" aria-label="Minutos"><span>min</span></div>
+          </div>
+        </div>
+
+        <h2 style="margin-top:6px">Quanto você já bebeu</h2>
+        <div class="drinks-table" id="drinks-table">
+          <div class="head">Tipo</div><div class="head">Qtd.</div><div class="head">Tamanho</div><div class="head">Teor</div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn-primary">Calcular e acompanhar</button>
+          <button type="button" class="btn-ghost" id="clear">Limpar</button>
+        </div>
+        <p class="hint">“Calcular” recomeça a sessão e distribui as bebidas acima ao longo do tempo desde o 1º gole. Depois disso, use os botões <b>+1</b> em “O que você bebeu” quando abrir a próxima. Sexo, peso, comida, ritmo e remédios mudam o cálculo na hora.</p>
+      </form>
 
       <div class="disclaimer">
         <p><b>Como é calculado.</b> Base de Widmark: álcool absorvido em gramas ÷ (peso em gramas × r) × 100. No modo padrão, r é fixo: 0,68 (homens) e 0,55 (mulheres). Watson estima a água do corpo pela altura, peso e idade (r = água corporal ÷ (0,8 × peso)); Forrest usa o IMC (r = 1,0181 − 0,01213 × IMC para homens e 0,8736 − 0,0124 × IMC para mulheres). A comida registrada durante a noite retém o álcool que ainda está no estômago e o que vier depois por cerca de 2 h (lanche) ou 4 h (refeição). Cada bebida é ingerida aos poucos durante o tempo de beber e passa do estômago para o sangue gradualmente. De estômago vazio, a absorção é rápida e o pico vem cerca de 30 a 45 min depois do gole. Com comida, parte do álcool fica retida e é absorvida em horas, uma parte não chega ao sangue e o pico é mais baixo e mais tardio. A eliminação é de 0,015% por hora (um pouco mais rápida depois de uma refeição). AAS e bloqueadores H2 podem aumentar o álcool no sangue em 10 a 20%. Calmantes, antidepressivos, antialérgicos e opioides não mudam o número, mas somam efeito com o álcool.</p>
